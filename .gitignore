@@ -14,4 +14,7 @@
 *.log
 
 # Diskusi
-diskusi/
+.diskusi/
+
+# Ringkasan
+.ringkasan/
