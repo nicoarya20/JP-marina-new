@@ -18,3 +18,12 @@
 
 # Ringkasan
 .ringkasan/
+# Node / build
+node_modules/
+dist/
+.output/
+.nitro/
+.tanstack/
+.vinxi/
+src/routeTree.gen.ts
+*.local
