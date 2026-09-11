@@ -1,0 +1,308 @@
+// Skema data Task Manager Kantor — hasil rangkuman diskusi desain backend.
+// Sumber keputusan (memory & .diskusi):
+//   - RBAC statis + role dinamis  → memory: rbac-static-definition-dynamic-assignment
+//   - Team scoping multi-team     → memory: team-scoping-multi-team-global-role
+//   - TaskEvent audit log + mesin eskalasi L1–L3 → memory: taskevent-audit-log-decision
+//   - State machine & lifecycle Task (revisi)    → memory: state-machine-lifecycle-decision
+//   - Entitas Project (Fork #6)   → memory: project-entity-decision
+//   - .diskusi/11-Sep/revisi-state-machine-dan-project.md (dampak §5 & §6)
+//
+// Prinsip yang dipegang saat menulis skema ini (anti-over-engineering, RTK #15/#17):
+//   - Hanya model/field yang SUDAH LOCKED yang dibuat di sini.
+//   - Yang masih fork terbuka (NotificationPreference, AiAction, Report, auth/session)
+//     SENGAJA belum ditambahkan — ditandai TODO di bagian bawah, bukan ditebak.
+//   - Transisi status & aturan role→izin hidup di KODE (peta konstan), bukan tabel DB.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enum
+// ---------------------------------------------------------------------------
+
+/// Peran global user. Definisi IZIN per peran (matriks 9 kemampuan × 4 peran,
+/// PAPER Bag. 16.2) hidup statis di kode — bukan tabel Permission.
+/// Lihat memory: rbac-static-definition-dynamic-assignment.
+enum UserRole {
+  ADMIN
+  MANAJER
+  STAF
+  PENINJAU
+}
+
+/// Jenis task — menentukan alur status mana yang SAH (dijaga di kode via
+/// LEGAL_TRANSITIONS[jenis][from] = Set<to>), bukan per-tim.
+enum TaskType {
+  TASK
+  BUG
+  QC
+  TICKET
+}
+
+/// Satu enum superset untuk semua jenis (bukan enum per-jenis).
+/// TASK hanya pakai {OPEN, IN_PROGRESS, DONE}; BUG/QC/TICKET + {IN_REVIEW, REOPENED}.
+/// BLOCKED & CANCELLED sengaja TIDAK ada di sini — lihat Task.blockedAt / Task.deletedAt
+/// dan ProjectStatus.CANCELLED.
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  IN_REVIEW
+  REOPENED
+  DONE
+}
+
+/// Status Project, sumbu terpisah dari status Task. Transisi legal di kode
+/// (pola sama TaskStatus). Liveness (boleh nambah task / boleh dinudge) hanya
+/// saat ACTIVE — lihat memory: project-entity-decision.
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+/// Siapa yang melakukan sebuah TaskEvent — dipakai untuk transparansi aksi AI
+/// (PAPER Bag. 9.7/10.6: setiap tindakan AI harus terlihat).
+enum ActorType {
+  USER
+  AI
+  SYSTEM
+}
+
+/// Jenis event yang dicatat di TaskEvent. Hanya event yang mengubah cerita
+/// task / dikonsumsi mesin hilir (audit, deteksi anomali, eskalasi, undo).
+/// Edit kosmetik (typo judul/deskripsi) di-collapse jadi TASK_EDITED.
+enum TaskEventType {
+  STATUS_CHANGED
+  RESCHEDULED
+  ASSIGNED
+  REASSIGNED
+  REVIEW_ACCEPTED
+  REVIEW_RETURNED
+  BLOCKED
+  UNBLOCKED
+  TASK_EDITED
+  NUDGE_SENT
+  DELETED
+  RESTORED
+}
+
+// ---------------------------------------------------------------------------
+// Model
+// ---------------------------------------------------------------------------
+
+/// Pengguna internal kantor. Role = plafon kemampuan (statis di kode),
+/// penugasan role dinamis lewat kolom `role` ini (ganti → langsung berlaku,
+/// baca dari DB tiap request — auth/session mekanik sendiri masih fork terbuka).
+model User {
+  id    String   @id @default(cuid())
+  name  String
+  email String   @unique
+  role  UserRole
+
+  managedTeams      Team[]        @relation("TeamManager")
+  teamMemberships   TeamMember[]
+  ownedProjects     Project[]     @relation("ProjectOwner")
+  createdTasks      Task[]        @relation("TaskCreator")
+  assignedTasks     Task[]        @relation("TaskAssignee")
+  reviewingTasks    Task[]        @relation("TaskReviewer")
+  taskEvents        TaskEvent[]   @relation("TaskEventActor")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Tim ringan — tanpa org/divisi bertingkat. Keanggotaan many-to-many lewat
+/// TeamMember (satu orang bisa di banyak tim). Cakupan kelola Manajer berasal
+/// dari `managerId`, BUKAN dari role — lihat memory: team-scoping-multi-team-global-role.
+model Team {
+  id   String @id @default(cuid())
+  name String
+
+  // Nullable: tim boleh dibuat dulu, manajer ditunjuk belakangan.
+  managerId String?
+  manager   User?   @relation("TeamManager", fields: [managerId], references: [id])
+
+  members  TeamMember[]
+  projects Project[]
+  tasks    Task[]
+
+  createdAt DateTime @default(now())
+
+  @@index([managerId])
+}
+
+/// Tabel join keanggotaan User↔Team (many-to-many).
+model TeamMember {
+  id     String @id @default(cuid())
+  userId String
+  teamId String
+
+  user User @relation(fields: [userId], references: [id])
+  team Team @relation(fields: [teamId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+}
+
+/// Project = folder pemilik task (Fork #6). Bentuk sengaja minimal — field
+/// lain (deskripsi, deadline, member eksplisit) ditunda sampai ada pemicu
+/// nyata. `isInbox` = tambahan implementasi (di luar bentuk minimal yang
+/// disepakati) supaya project "Inbox" per-user bisa dicari tanpa menebak dari
+/// nama — flag ke user untuk dikonfirmasi.
+model Project {
+  id     String        @id @default(cuid())
+  name   String
+  status ProjectStatus @default(ACTIVE) // asumsi: lihat catatan di bawah, tolong konfirmasi
+
+  ownerId String
+  owner   User    @relation("ProjectOwner", fields: [ownerId], references: [id])
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  /// Penanda project "Inbox" bawaan per-user (satu per user, dijaga di kode
+  /// saat seeding — bukan constraint DB). Tugas cepat tanpa project pilihan
+  /// eksplisit masuk sini (Task.projectId NOT NULL).
+  isInbox Boolean @default(false)
+
+  tasks Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([teamId])
+}
+
+/// Task polimorfik (satu tabel untuk TASK/BUG/QC/TICKET). Status tersimpan
+/// (bukan diturunkan dari event) — di-update satu transaksi bareng TaskEvent
+/// STATUS_CHANGED. `blockedAt` & `deletedAt` adalah sumbu KONDISI, terpisah
+/// dari `status` — lihat memory: state-machine-lifecycle-decision.
+model Task {
+  id          String     @id @default(cuid())
+  type        TaskType
+  title       String
+  description String?
+  status      TaskStatus @default(OPEN)
+
+  // Deadline task ("tenggat", PAPER Bag. 7) — juga jadi basis deteksi overdue
+  // di mesin eskalasi (EscalationPolicy.overdueGraceHours). Field tambahan
+  // di luar yang eksplisit disebut di rangkuman keputusan, tapi diperlukan
+  // supaya fitur reminder & eskalasi bisa jalan — tolong konfirmasi.
+  dueAt DateTime?
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  creatorId String
+  creator   User   @relation("TaskCreator", fields: [creatorId], references: [id])
+
+  // Satu penanggung jawab (bukan banyak kontributor) — nullable: task tanpa
+  // PJ adalah kondisi anomali (didesak langsung ke manajer, bukan ke assignee).
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  // NULL = antri (belum dipegang reviewer manapun) — status "sub-review" ini
+  // diturunkan on-the-fly dari kolom ini, bukan status tersendiri.
+  reviewerId String?
+  reviewer   User?   @relation("TaskReviewer", fields: [reviewerId], references: [id])
+
+  // Kondisi ortogonal — bukan status. Nullable timestamp, cair sendiri saat
+  // penghambat kelar; badge "Terhambat" tapi status asli (mis. IN_PROGRESS)
+  // tetap terjaga.
+  blockedAt DateTime?
+
+  // Sampah 30-hari (ganti arsip yang dibuang total). Restore selama masa itu;
+  // hard-purge sesudahnya meng-cascade TaskEvent TANPA tombstone.
+  deletedAt DateTime?
+
+  // Counter cache (warisan Fork #4 Opsi B) — dijaga satu transaksi bareng
+  // TaskEvent terkait, dibaca worker anomali via query berindeks tanpa
+  // menyentuh log event.
+  lastActivityAt   DateTime  @default(now())
+  rescheduleCount  Int       @default(0)
+  reopenCount      Int       @default(0)
+  escalationLevel  Int       @default(0)
+  lastNudgedAt     DateTime?
+
+  events TaskEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([teamId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([rescheduleCount])
+  @@index([lastActivityAt])
+  @@index([dueAt])
+}
+
+/// Log audit append-only, satu tabel untuk semua jenis task (Fork #4 Opsi B).
+/// Sumber kebenaran "perjalanan task" (Bag. 10.2 PAPER): audit, undo, feed
+/// deteksi anomali & eskalasi. Cascade tanpa tombstone saat Task di-purge.
+model TaskEvent {
+  id     String        @id @default(cuid())
+  taskId String
+  task   Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  type TaskEventType
+
+  actorType ActorType
+  // Nullable: actor AI/SYSTEM tidak punya baris User.
+  actorId String?
+  actor   User?   @relation("TaskEventActor", fields: [actorId], references: [id])
+
+  // Detail bebas per jenis event (mis. changedFields, from/to, alasan AI).
+  payload Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+/// Ambang deteksi anomali — milik ORG (satu baris global, read-only bagi
+/// user), bukan milik user. Lahir terisi nilai default aman; admin boleh ubah
+/// tapi tidak wajib (RTK #15: bukan hardcode, sumber kebenaran tetap baris
+/// DB ini). Irama penyampaian (jam aktif, channel, jeda ping) TIDAK di sini —
+/// itu milik NotificationPreference per-user, lihat TODO di bawah.
+/// Singleton: aplikasi menjaga hanya ada satu baris (id tetap = 1).
+model EscalationPolicy {
+  id Int @id @default(1)
+
+  overdueGraceHours   Int @default(24)
+  stalledDays         Int @default(3)
+  rescheduleThreshold Int @default(3)
+  reopenThreshold     Int @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// TODO — sengaja BELUM dibuat, fork masih terbuka (lihat memory:
+// task-manager-backend-design, urutan diskusi berikutnya):
+//   - NotificationPreference (+ kemungkinan gabung UserPreference): JSON vs
+//     normalized belum diputuskan. Baru dibutuhkan field jamAktif/channel/
+//     jedaPing untuk Escalation Engine (LOCKED bag. D), tapi bentuk tabelnya
+//     sendiri belum dikunci — jangan ditebak di sini.
+//   - AiAction: TaskEvent.actorType=AI vs tabel terpisah masih diuji.
+//   - Report: generated vs tersimpan belum dibahas.
+//   - Auth/session (JWT pendek+refresh vs server session Redis) belum dibahas
+//     — makanya User di atas belum punya kolom credential apa pun.
+// ---------------------------------------------------------------------------
