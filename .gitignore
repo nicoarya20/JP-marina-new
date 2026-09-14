@@ -18,3 +18,15 @@
 
 # Ringkasan
 .ringkasan/
+
+# Wireframe
+.wireframe/
+
+# Memori
+.memori/
+
+# Dependencies
+node_modules/
+
+# Scratch/analysis (temporary)
+.tmp_analysis/
