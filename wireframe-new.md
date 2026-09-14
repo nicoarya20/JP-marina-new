@@ -8,7 +8,10 @@ ke `wireframe.md` + board Penpot. Belum final sampai semua bagian selesai dibaha
 setelah review wireframe di Penpot. Bagian 2 (Struktur Navigasi Global) dikunci 2026-09-13, **direvisi
 lagi (Revisi 2)** 2026-09-14 (nav + FAB "Tambah"). Bagian 3 (Beranda per-role) dikunci 2026-09-14 — board
 Penpot 4 varian sudah dibuat, tabel Menu Cepat & Tombol aksi utama diperbarui menyesuaikan Revisi 2
-Bagian 2. Bagian 4 (alur lengkap Admin per-screen) — belum dibahas.
+Bagian 2. Bagian 4 (Menu Acara — struktur, alur & titik AI) dikunci 2026-09-14. Bagian 6 (Menu Profil —
+struktur, alur & RBAC Laporan) dikunci 2026-09-14. Bagian 7 (Menu Project — list, filter AI "perlu
+perhatian" & aksi kartu) dikunci 2026-09-14. Bagian 8 (Sub-tab Task dalam tab "Semua" — list, filter,
+RBAC CRUD) dikunci 2026-09-14. Bagian 5 (alur lengkap Admin per-screen) — belum dibahas.
 
 ---
 
@@ -154,6 +157,7 @@ butuh wadah pribadi sudah difasilitasi Inbox default per user, lihat memori `pro
 | Lihat list project | Semua project | Yang diikuti (owner/anggota) | Yang diikuti | Yang diikuti |
 | **Buat project** | ✓ (tim manapun) | ✓ — **hanya tim yang dia `managerId`-nya** | — (view-only) | — (view-only) |
 | **Edit project** (nama/status/anggota) | ✓ (semua project) | ✓ — **hanya project milik tim yang dia `managerId`-nya** | — | — |
+| **Batalkan project** (soft → status `CANCELLED`, **tanpa hard delete**) | ✓ (semua project) | ✓ — **hanya project milik tim yang dia `managerId`-nya** | — | — |
 | Tambah task ke project | ✓ | ✓ | sendiri (ke project yang bisa dia lihat, project harus ACTIVE) | — |
 
 **Kenapa scope Manajer dari `Team.managerId`, bukan keanggotaan tim:** konsisten dengan keputusan
@@ -217,10 +221,10 @@ utama), dropdown difilter status **ACTIVE** + visibilitas sesuai role (aturan in
 Project" di atas, ditegaskan ulang berlaku juga di sini) — bukan input manual, termasuk Inbox default
 milik sendiri untuk Staf.
 
-### Belum diterapkan ke `wireframe.md`
+### Status penerapan
 
-Revisi nav di atas baru didiskusikan di sini — belum diterapkan ke board Penpot maupun `wireframe.md`
-master. Tabel per-role di Bagian 3 di bawah sudah disesuaikan dengan Revisi 2 ini.
+Revisi nav di atas **sudah diterapkan ke board Penpot** (page "Beranda", project JP-ATLAS-PM) pada
+2026-09-14 — lihat tabel board di Bagian 3. Belum diterapkan ke `wireframe.md` master.
 
 ---
 
@@ -276,14 +280,312 @@ Dua elemen di antaranya berasal dari kapabilitas AI, dengan peran berbeda:
 | Beranda · Staf | 390×1208 | 920, 0 | 3 kartu "Tugas Hari Ini" menggantikan kartu utama tunggal |
 | Beranda · Peninjau | 390×881 | 1380, 0 | Tanpa kartu sekunder & tanpa tombol aksi; menu cepat 1 item |
 
-Semua board pakai bottom nav sesuai Bagian 2 **Revisi 1** (Beranda · Project · Task · Profile) — belum
-diperbarui ke struktur **Revisi 2** (Hari Ini · Semua · [+ Tambah] · Acara · Profil), karena board
-dibuat sebelum Revisi 2 didiskusikan. Gaya visual mengikuti page "Login" — primer `#2f6fed`, font
-Source Sans Pro, radius kartu 12–14, border `#e5e7eb`.
+Semua board sudah diperbarui ke bottom nav **Revisi 2** (Bagian 2): **Hari Ini · Semua · [+ Tambah,
+FAB tengah] · Acara · Profil**. FAB tampil untuk Admin/Manajer/Staf, disembunyikan untuk Peninjau
+(sesuai RBAC). Gaya visual mengikuti page "Login" — primer `#2f6fed`, font Source Sans Pro, radius
+kartu 12–14, border `#e5e7eb`.
 
 ### Belum diterapkan ke `wireframe.md`
 
-Board di atas sudah dibuat di Penpot (project JP-ATLAS-PM, page "Beranda") tapi **belum** diterapkan
-ke `wireframe.md` master — menunggu Bagian 4 (alur lengkap Admin per-screen) selesai dibahas. Board
-Penpot juga masih pakai nav Revisi 1 (lihat catatan di atas), belum diperbarui ke struktur Revisi 2
-(Hari Ini · Semua · [+ Tambah] · Acara · Profil) yang baru dikunci 2026-09-14.
+Board di atas sudah dibuat di Penpot (project JP-ATLAS-PM, page "Beranda"), termasuk nav Revisi 2,
+tapi **belum** diterapkan ke `wireframe.md` master — menunggu Bagian 5 (alur lengkap Admin per-screen)
+selesai dibahas.
+
+---
+
+## 4 · Menu Acara — Struktur, Alur & Titik AI
+
+**Status:** Dikunci 2026-09-14. Menyusul tab "Acara" naik jadi bottom nav utama di Bagian 2 Revisi 2.
+Detail di bawah melengkapi 6 screen (M1–M6) yang sudah ada di `wireframe.md` §10 "Meeting & Acara" —
+belum ada screen baru, hanya penambahan elemen & aturan di dalamnya.
+
+### Struktur & alur
+
+```
+Tab "Acara" (landing)
+└─ M1 Agenda — list acara, flat kronologis + header (Hari ini/Besok/Minggu ini/Lewat)
+   ├─ banner ringkas Sekretaris AI di atas list
+   ↓ tap kartu acara
+   M3 Detail Acara (info + peserta + status hadir)
+        ├─→ M4 Notulen (catatan rapat, dibantu Sekretaris AI)
+        └─→ M5 Pengingat (reminder manual per-acara, tanpa AI)
+   [list kosong] → M6 Empty (CTA "Buat Acara" untuk role berhak)
+
+FAB "Tambah" (Admin/Manajer) → M2 Buat Acara (dibantu Saran AI — deteksi bentrok jadwal)
+```
+
+**Kenapa list flat, bukan sub-tab Mendatang/Riwayat:** beda dari Project (ACTIVE/ON_HOLD/DRAFT vs
+COMPLETED/CANCELLED — axis status backend nyata), Acara tidak punya axis status seperti itu — bedanya
+cuma waktu. Sub-tab di sini cuma nambah lapis navigasi tanpa manfaat nyata, bertentangan dengan minim
+beban kognitif persona lansia 55–75 (`PAPER.md`). Header kronologis kasih pemisahan visual tanpa perlu
+tap pindah tab.
+
+### Visibilitas list acara per role
+
+Disamakan dengan pola visibilitas Project (bukan "semua role lihat semua acara org") — supaya mental
+model konsisten antar entitas, dan Peninjau tidak kebanjiran info rapat internal yang tak relevan
+buatnya.
+
+| Role | Visibilitas |
+|---|---|
+| Admin | Semua acara di organisasi |
+| Manajer | Acara milik tim yang dia `managerId`-nya, ditambah acara di tim lain yang dia diundang |
+| Staf | Hanya acara yang dia diundang |
+| Peninjau | Hanya acara yang dia diundang |
+
+### RBAC baru — Notulen
+
+Beda dari RBAC "Kelola meeting & event" (create/edit acara) di `wireframe.md` §11, menulis draft
+catatan notulen dibuka lebih luas karena sekadar dokumentasi, bukan wewenang kelola:
+
+| Aksi | Admin | Manajer | Staf | Peninjau |
+|---|---|---|---|---|
+| Tulis draft catatan mentah | ✓ | ✓ | ✓ (kalau peserta) | ✓ (kalau peserta) |
+| Minta Sekretaris AI rapikan jadi notulen | ✓ | ✓ | ✓ (kalau peserta) | ✓ (kalau peserta) |
+| Finalisasi/kunci notulen resmi | ✓ | ✓ (acara timnya) | — | — |
+
+### Titik AI — 3 lokasi, dikunci
+
+| Titik | Peran AI | Keputusan |
+|---|---|---|
+| **M1 Agenda** | Sekretaris AI — ringkasan situasi | Banner ringkas di atas list, mis. *"2 rapat mendatang minggu ini, 1 belum ada agenda."* Mengisi gap karena Sekretaris AI di Beranda tidak menyebut acara sama sekali (lihat tabel Bagian 3). |
+| **M2 Buat Acara** | Saran AI — rekomendasi tindakan | Deteksi bentrok jadwal peserta terpilih saat isi form → suggestion box dengan alternatif waktu, mis. *"3 dari 5 peserta sudah ada acara jam ini, sarankan waktu lain: [opsi]."* Tidak diterapkan di M5 — M5 murni setting manual. |
+| **M4 Notulen** | Sekretaris AI — rapikan catatan | User ketik catatan kasar (bukan rekam audio — hindari beban infra & risiko privasi rapat sensitif) → AI merapikan jadi format terstruktur: Ringkasan · Keputusan · Item Tindak Lanjut. |
+
+**Ditahan (belum ada pemicu nyata):** item tindak lanjut di notulen **tidak** otomatis jadi Task baru —
+relasi baru Event↔Task belum punya kebutuhan konkret (prinsip yang sama dipakai di
+[[project-entity-decision]] — tunggu pemicu nyata sebelum tambah entitas/relasi). Tetap teks biasa di
+notulen; convert-to-task manual bisa ditambah nanti kalau dibutuhkan.
+
+### Relasi ke Project
+
+**Standalone** — Acara tidak terhubung ke Project (tidak ada `projectId`). Sama alasan seperti di atas:
+belum ada pemicu nyata yang butuh relasi ini; mudah ditambah kalau kebutuhan konkret muncul (mis.
+"lihat riwayat rapat dari halaman detail Project").
+
+### Belum diterapkan ke `wireframe.md`
+
+Struktur, RBAC notulen, dan titik AI di atas baru didiskusikan di sini — belum diterapkan ke
+`wireframe.md` master §10 "Meeting & Acara" maupun board Penpot. §10 saat ini baru berisi 6 screen
+(M1–M6) tanpa detail elemen AI atau aturan visibilitas per role di atas.
+
+---
+
+## 6 · Menu Profil — Struktur, Alur & RBAC Laporan
+
+**Status:** Dikunci 2026-09-14. Menyusul keputusan Bagian 2 (Pengaturan & Laporan pindah jadi sub-menu
+di dalam Profile) — bagian ini mengunci struktur & alur layar Profil sendiri, yang sebelumnya cuma
+disinggung sambil lalu di diskusi nav, belum pernah dibedah detail.
+
+### Perubahan vs `wireframe.md` saat ini
+
+| # | Elemen | Sebelumnya | Jadi |
+|---|---|---|---|
+| 1 | P1 · Profil Saya | Fungsi: "Tugas milik sendiri & detailnya" | **Usang, dihapus.** Fungsi tugas pribadi pindah total ke tab **Semua → sub-tab Task** (lihat Bagian 2). Profil tidak lagi menampilkan daftar tugas. |
+| 2 | Pengaturan (§8) | Screen sendiri di top-level: Akun, Notifikasi, Aksesibilitas, **Keluar** (satu paket) | **Keluar dikeluarkan** dari Pengaturan, naik jadi item terpisah di layar Profil utama (lihat struktur di bawah). Pengaturan sisa: Akun, Notifikasi, Aksesibilitas. |
+| 3 | Laporan (§6) | Top-level nav (5 item lama) → diturunkan ke Menu Cepat (Revisi 2 Bagian 2) | **Pindah lagi**, jadi sub-menu di dalam Profil (bukan Menu Cepat) — sejajar Pengaturan. |
+| 4 | Isi menu Profil | Belum ada spek | **Baru**: Laporan · Pengaturan · Bantuan/FAQ · Tentang aplikasi · Keluar |
+
+### Struktur layar Profil
+
+Sama untuk semua role — yang beda hanya isi tiap item (RBAC), bukan strukturnya.
+
+**Header:** Foto + Nama + Jabatan/Divisi (tersinkron dari A5) + **role/badge ditampilkan di sini** —
+sengaja beda dari A5 "Lengkapi profil" yang justru menyembunyikan info role saat user baru pertama
+login (lihat Bagian 1 Revisi 2, poin field peran dihapus dari A5). Di Profil, setelah akun aktif,
+menampilkan role tidak lagi berisiko disalahartikan sebagai "role default" seperti kejadian di A5.
+
+**List menu (urutan tetap, isi beda per role):**
+
+| # | Item | Fungsi |
+|---|---|---|
+| 1 | Laporan | Buka §6 "Laporan & Ekspor" — akses beda per role (lihat RBAC di bawah) |
+| 2 | Pengaturan | Akun, Notifikasi, Aksesibilitas (Keluar sudah dikeluarkan dari sini) |
+| 3 | Bantuan/FAQ | Baru — belum ada screen-nya, perlu didesain terpisah |
+| 4 | Tentang aplikasi | Baru — belum ada screen-nya, perlu didesain terpisah |
+| 5 | Keluar | Item terpisah, dipisah dari Pengaturan → tap → tetap ke A7 konfirmasi keluar (flow tidak berubah, lihat Bagian 1) |
+
+**Kenapa Keluar dipisah dari Pengaturan, dan kenapa bukan ditaruh di app bar dekat titik notifikasi:**
+sempat dipertimbangkan taruh di app bar Beranda (dekat titik notifikasi), tapi ditolak — app bar
+Beranda sudah padat (Judul, menu ☰, avatar, titik notifikasi merah), dan Keluar adalah aksi destruktif
+yang berisiko ke-tap gak sengaja kalau cuma jadi ikon tanpa label di situ, apalagi untuk persona lansia
+55–75 (`PAPER.md`) yang butuh label jelas, bukan ikon ambigu. Ditaruh sebagai baris berlabel jelas di
+layar Profil, dipisah dari Pengaturan supaya cepat dijangkau tanpa masuk 2 layar dulu, tapi tetap lewat
+A7 konfirmasi sebagai pengaman dari ke-tap tidak sengaja.
+
+### RBAC Laporan — Dikunci 2026-09-14
+
+| Role | Akses Laporan |
+|---|---|
+| Admin | Full — semua jenis laporan (Pusat/Harian/Mingguan/Per-anggota) + ekspor, org-wide |
+| Manajer | Full, **scoped ke tim yang dia `managerId`-nya** (konsisten [[team-scoping-multi-team-global-role]]) |
+| Staf | Cuma laporan miliknya sendiri, tanpa akses laporan tim/org |
+| Peninjau | Lihat-saja, tanpa ekspor |
+
+### Kelola pengguna / Kelola Tim — tetap di Menu Cepat, tidak dobel di Profil
+
+Sempat dipertimbangkan taruh "Kelola pengguna" (Admin, §9) & "Kelola Tim" (Manajer, §5) juga sebagai
+entry point di Profil, tapi diputuskan **tidak** — keduanya tetap murni lewat Menu Cepat Beranda + FAB
+"Tambah" (lihat Bagian 2 & 3). Profil dikunci sebagai menu **murni personal**; tools manajemen
+org/tim tidak digandakan ke sini. Dipertegas juga: Manajer memang **tidak** punya kemampuan kelola
+keanggotaan tim (tambah/hapus/ubah role anggota) — itu murni domain Admin (`Team` di-manage di level
+org, bukan per-manajer, konsisten [[team-scoping-multi-team-global-role]]); "Kelola Tim" milik Manajer
+cuma soal tugas & beban kerja (Tugaskan/Alihkan/Pantau Beban/Audit Anomali), bukan soal akun.
+
+### Belum diterapkan ke `wireframe.md`
+
+Struktur & keputusan di atas baru dikunci di sini — belum diterapkan ke board Penpot maupun
+`wireframe.md` master. Screen baru "Bantuan/FAQ" dan "Tentang aplikasi" juga belum pernah didesain
+sama sekali (belum ada di Penpot). §8 "Pengaturan" & §6 "Laporan & Ekspor" di `wireframe.md` juga perlu
+disesuaikan (Keluar dipindah keluar dari §8; RBAC per role di atas belum tercermin di §6).
+
+---
+
+## 7 · Menu Project — List, Filter AI "Perlu Perhatian" & Aksi Kartu
+
+**Status:** Dikunci 2026-09-14. Melengkapi "Aturan Project" & "RBAC Project (CRUD)" di Bagian 2 dengan
+detail layar list project itu sendiri (tab **Semua** → sub-tab **Project** → sub-tab **Berjalan**/
+**Arsip**, sudah dikunci di Bagian 2) — sebelumnya baru aturan data, belum ada spek tampilan & aksi.
+
+### Tampilan awal — card list + tombol create
+
+- Card project ditampilkan di sub-tab **Berjalan** (default) & **Arsip**, mengikuti visibilitas per
+  role yang sudah dikunci (Admin: semua project org; Manajer/Staf/Peninjau: yang diikuti).
+- **Tombol "+ Project Baru" di header list** — redundant dengan FAB "Tambah" global (Bagian 2 Revisi
+  2), tapi sengaja dipertahankan dua-duanya: FAB = akses cepat dari tab manapun, tombol header = jelas
+  konteksnya "nambah ke sini" saat user memang sedang di layar Project. Sama seperti pola FAB +
+  Tombol aksi utama di Beranda (Bagian 2 poin 3) — dua entry point, beda peran, bukan duplikasi sia-sia.
+- Muncul untuk **Admin** (tim manapun) & **Manajer** (scoped tim `managerId`-nya) — mengikuti RBAC
+  "Buat project" yang sudah dikunci di Bagian 2. **Staf/Peninjau tidak melihat tombol ini** (view-only).
+
+### Banner AI "Perlu Perhatian" (hanya sub-tab Berjalan)
+
+Menerapkan filosofi deteksi anomali `PAPER.md` §10.2 (**heuristik berbasis aturan yang bisa
+dijelaskan, bukan skor AI buram** — Rule 20 anti-klaim ML berlebihan) ke level Project, memakai sinyal
+yang sudah ada di data — bukan mekanisme AI baru:
+
+| Kriteria | Sinyal | Sumber data |
+|---|---|---|
+| **Mandek** | Status `DRAFT`/`ON_HOLD` lebih dari **N hari** tanpa perubahan | `Project.status` + timestamp transisi terakhir |
+| **Overdue menumpuk** | Rasio task overdue tinggi di dalam project | Task anak dengan deadline lewat, `deletedAt IS NULL` |
+| **Banyak terhambat** | Banyak task anak dengan `blockedAt` aktif | Sumbu `blockedAt` — [[state-machine-lifecycle-decision]] |
+
+- Tampil sebagai **banner ringkas di atas list** (pola sama seperti banner Sekretaris AI di M1 Agenda,
+  Bagian 4), mis. *"2 project butuh perhatian: 1 mandek Draft 7 hari, 1 overdue task-nya menumpuk"* →
+  tap untuk filter list ke project yang di-flag. **Bukan** filter chip statis — banner cuma muncul
+  kalau ada yang perlu di-flag, konsisten pola "tawaran/tanda, bukan skor" di PAPER §10.2 & §10.6.
+- **Threshold N hari TIDAK dikarang di sini** — mengikuti PAPER §10.5 (threshold molor harus bisa
+  diatur pengguna, bukan angka tetap dari desain). Rumahnya: Menu Cepat **"Aturan & kebijakan"** milik
+  Admin (Bagian 3), yang memang sudah ada sebagai tempat pengaturan kebijakan org-wide.
+- **Setiap flag wajib disertai alasan terbaca** (nama project + kriteria yang kena), tidak pernah cuma
+  angka/skor — konsisten §10.2 "anomali disertai alasan yang bisa dibaca".
+- **Visibilitas banner**: muncul untuk role manapun yang bisa melihat project itu (transparansi, bukan
+  fitur eksklusif Admin/Manajer) — tapi CTA-nya beda: Admin/Manajer dapat *"Tindak lanjut"* (buka
+  project, bisa reaktivasi/edit); Staf/Peninjau cuma *"Lihat detail"* (non-actionable, konsisten RBAC
+  view-only mereka di Bagian 2 — melihat sinyal boleh, bertindak tidak).
+
+### Aksi per card — Edit & Batalkan (bukan "Hapus")
+
+- Affordance: menu **"⋯"** di tiap card, isi **Edit** & **Batalkan Project** — hanya muncul untuk role
+  yang RBAC-nya mengizinkan (Admin: semua card; Manajer: hanya card project tim `managerId`-nya). Staf/
+  Peninjau **tidak melihat menu "⋯" sama sekali** (view-only, tidak ada satu pun aksi valid untuk
+  mereka di sini — sejalan prinsip FAB Peninjau di Bagian 2: nihil opsi valid → elemen disembunyikan,
+  bukan ditampilkan lalu ditolak).
+- **"Batalkan Project" = soft, bukan hard delete.** Aksi ini men-set `Project.status = CANCELLED`,
+  **tidak** menghapus record atau cascade ke task di dalamnya — konsisten alasan lahirnya entitas
+  Project itu sendiri ([[project-entity-decision]]: Project = rumah permanen buat record tuntas/batal;
+  menghapusnya beneran justru menghapus tujuan Project ada). Sengaja dilabeli **"Batalkan"**, bukan
+  "Hapus", supaya bahasa UI jujur ke user bahwa ini bukan aksi destruktif/hilang-permanen.
+- **Konfirmasi wajib sebelum eksekusi** (dialog "Batalkan project ini? Task di dalamnya tetap
+  tersimpan.") — aksi sensitif tidak boleh diam-diam, pola sama dengan konfirmasi Keluar (A7, Bagian 1)
+  & prinsip PAPER "aksi sensitif → approval, bukan otomatis".
+- Project yang sudah `CANCELLED` pindah tampil di sub-tab **Arsip** (Bagian 2). **Tidak ada hard
+  delete di UI mana pun** untuk Project — beda dari Task yang punya pola sampah 30-hari
+  ([[state-machine-lifecycle-decision]]), Project memang sengaja tanpa jalur hilang permanen.
+
+### Open question (belum dibahas)
+
+- **Transisi balik dari `CANCELLED`** (mis. Admin/Manajer sadar salah batal, mau aktifkan lagi) —
+  apakah legal & lewat tombol apa, belum didefinisikan di `LEGAL_TRANSITIONS` backend maupun di sini.
+  Dicatat sebagai edge case terbuka, bukan diasumsikan otomatis boleh.
+
+### Belum diterapkan ke `wireframe.md`
+
+Struktur di atas baru dikunci di sini — belum ada screen Project sama sekali di board Penpot maupun
+`wireframe.md` master (entitas Project memang baru, lihat Bagian 2). Menunggu Bagian 5 (alur lengkap
+Admin per-screen) atau instruksi eksplisit untuk mulai desain board Penpot-nya.
+
+---
+
+## 8 · Sub-tab Task (dalam tab "Semua") — List, Filter & RBAC CRUD
+
+**Status:** Dikunci 2026-09-14. Melengkapi tab **Semua** → sub-tab **Task** (pasangan sub-tab Project
+yang sudah dikunci di Bagian 2 & 7) — sebelumnya baru struktur nav, belum ada spek tampilan, filter,
+maupun RBAC create/edit/delete. Sub-tab ini juga jadi **pewaris fungsi Papan Bersama** (`PAPER.md`
+§16.6 — "semua tugas semua user", filter per orang/status/prioritas) yang sempat disebut melebur ke
+menu Project di Bagian 2 sebelum nav direvisi ulang jadi tab "Semua" dengan 2 sub-tab.
+
+### Tampilan awal — list & filter
+
+- Card task lintas project (judul, label Project, status, tenggat), mengikuti visibilitas per role
+  (lihat tabel di bawah).
+- **Search**: judul task.
+- **Filter**: Status (`OPEN`/`IN_PROGRESS`/`IN_REVIEW`/`REOPENED`/`DONE`) · Project · Assignee/PJ
+  (khusus Admin/Manajer) · rentang tenggat.
+- **Filter "⚠️ Perlu Perhatian"** — bukan kolom/flag baru, translate langsung dari deteksi anomali
+  on-the-fly yang sudah ada di [[taskevent-audit-log-decision]] (overdue, `blockedAt` aktif,
+  `rescheduleCount≥3`, stalled/mangkrak) — konsisten prinsip "hitung on-the-fly, jangan simpan
+  verdict". Nama sengaja "Perlu Perhatian" bukan "Danger", selaras nada §16.6 "bukan surveillance,
+  fokus butuh-bantuan bukan siapa-salah" — sama prinsip dengan banner AI Bagian 7 (Project).
+- **Filter/tab "Sampah"** — list task ber-`deletedAt` dalam window restore 30 hari (lihat CRUD di
+  bawah), ditaruh di sub-tab Task ini sendiri (bukan di Profil/Pengaturan) supaya dekat konteks dan
+  semua role yang berhak hapus tak perlu pindah layar buat restore.
+
+### Visibilitas list — Dikunci
+
+Pola sama persis dengan visibilitas Project ([[project-entity-decision]], Bagian 2) — konsisten
+[[team-scoping-multi-team-global-role]]:
+
+| Role | Visibilitas |
+|---|---|
+| Admin | Semua task di organisasi |
+| Manajer | Task dalam tim yang dia `managerId`-nya |
+| Staf | Task terkait dia saja (creator atau assignee) |
+| Peninjau | Task yang perlu dia-review (`reviewerId`) |
+
+### Create task dari sub-tab ini
+
+Entry point baru — tombol "+" di header list, sama pola dengan tombol header Bagian 7 (Project):
+redundant dengan FAB "Tambah" global (Bagian 2 Revisi 2) & Tombol aksi utama di Beranda, tapi sengaja
+dipertahankan (FAB/Tombol aksi = akses cepat dari tab manapun; tombol di sini = jelas konteksnya
+"nambah ke sini" saat user memang sedang di layar Task). **Bukan form baru** — buka form "Tugas Baru"
+yang sama (Project picker filter status `ACTIVE` + visibilitas sesuai role, lihat "Aturan Project" di
+Bagian 2). Beda dari FAB Admin/Manajer: di sini konteks sudah pasti Task, jadi langsung buka form
+tanpa action sheet. Peninjau tidak melihat tombol ini (nihil RBAC "buat").
+
+### RBAC CRUD Task — Dikunci
+
+| Aksi | Admin | Manajer | Staf | Peninjau |
+|---|---|---|---|---|
+| Lihat list task | Semua task org | Task tim yang dia `managerId`-nya | Task terkait dia (creator/assignee) | Task yang perlu dia-review |
+| Buat task | ✓ | ✓ | ✓ (sendiri) | — |
+| Edit/update task | ✓ (semua yang terlihat) | ✓ (scope tim) | ✓ (task sendiri) | — |
+| Hapus task (soft-delete) | ✓ (semua yang terlihat) | ✓ (scope tim) | ✓ (task sendiri) | — |
+
+**Kenapa Edit = kapabilitas "Kerjakan & update tugas" yang sudah ada (`PAPER.md` §16.2), bukan
+kapabilitas baru:** update dan edit secara konsep sama — matriks lama sudah beri ✓ ke Admin/Manajer/
+Staf; yang baru dikunci di sini cuma scope ownership eksplisit per role (matriks lama tak
+memisahkannya). Reschedule (ganti tenggat) tetap event backend terpisah (`RESCHEDULED`, nambah
+`rescheduleCount`) di dalam alur Edit yang sama — beda di level backend, bukan beda kapabilitas RBAC.
+
+**Kenapa Delete perlu dikunci baru:** `PAPER.md` §16.2 tidak punya baris delete task sama sekali —
+gap yang baru disadari di diskusi ini (beda dari Project yang pakai "Batalkan"/soft-status, Task
+sudah punya mekanisme sendiri di backend). Backend-nya sudah siap: soft-delete `deletedAt`, restore
+30 hari, wajib konfirmasi dulu sebagai aksi sensitif (lihat [[state-machine-lifecycle-decision]]).
+Scope hak hapus ikut pola visibilitas/edit di atas — bukan role terpisah.
+
+### Belum diterapkan ke `wireframe.md`
+
+Struktur, filter, dan RBAC CRUD Task di atas baru dikunci di sini — belum diterapkan ke board Penpot
+maupun `wireframe.md` master. Filter "Perlu Perhatian" & "Sampah" belum pernah didesain sama sekali
+di Penpot.
